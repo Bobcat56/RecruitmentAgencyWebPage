@@ -1,0 +1,65 @@
+﻿@model IEnumerable<Presentation.Models.JobViewModel>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Job Listings</h1>
+
+@if (User.IsInRole("Admin") || User.IsInRole("Manager") || User.IsInRole("Employer"))
+{
+    <p>
+        <a asp-action="Create">Add Job Listing</a>
+    </p>
+}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Title)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Description)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Requirments)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Title)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Description)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Requirments)
+            </td>
+            <td>
+                @if (User.Identity.IsAuthenticated)
+                {
+                    <form asp-controller="CV" asp-action="Upload" method="post" enctype="multipart/form-data" style="display:inline">
+                        <input type="file" name="cvFile" />
+                        <input type="hidden" name="EmployerId" value="@item.EmployerId" />
+                        <button type="submit" class="btn btn-primary">Upload CV</button>
+                        @Html.AntiForgeryToken()
+                    </form>
+                }
+
+                @if (User.IsInRole("Admin") || User.IsInRole("Manager") || User.IsInRole("Employer"))
+                {
+                    <span> | </span>
+                    @Html.ActionLink("Edit Job Listing", "Edit", new { /* id=item.PrimaryKey */ })
+                    <span> | </span>
+                    @Html.ActionLink("Delete Job Listing", "Delete", new { id=item.Id })
+                }
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

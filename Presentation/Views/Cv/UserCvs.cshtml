@@ -1,0 +1,41 @@
+﻿@model IEnumerable<Presentation.Models.CvViewModel>
+
+@{
+    ViewData["Title"] = "UserCvs";
+}
+
+<h1>My Submitted Cv's</h1>
+
+@if (!Model.Any())
+{
+    <p>You haven't submitted any CV's yet.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>
+                    <a>File Uploaded</a>
+                </th>
+                <th>
+                    <a>File Uploaded to: </a>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FileName)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.EmployerEmail)
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+}

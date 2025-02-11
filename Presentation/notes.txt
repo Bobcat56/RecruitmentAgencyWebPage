@@ -1,0 +1,158 @@
+﻿----------------------- Tasks -----------------------
+3.) Add Confirm Email function properly
+6.) The only users allowed to delete a listing are the employers who put it up, or if its an Admin or Manager
+7.) Add a page for users to see the cvs they have uploaded. 
+8.) Employers can see Cvs uploaded to their respective job
+
+-----------------------------------------------------
+
+---------------------- O Auth -----------------------
+App id: 01e441ee-d0e2-4c47-b8d9-94364465a262
+
+Secret Value: U6Z8Q~FfkX1q9tjH6TR4Y7EfZUTiqAi3ejEYDcgD
+Secret Key: e1e5100c-f6ee-440c-99f2-03d4f895c109
+-----------------------------------------------------
+
+------------------------ PMC ------------------------
+	PM> add-migration "nMigration"
+	PM> update-database
+-----------------------------------------------------
+
+Upload & Download with Digital Signature only:
+
+Upload:
+        public async Task<IActionResult> Upload(IFormFile cvFile, string employerId)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = "Only PDF and DOCX files are allowed.";
+                return RedirectToAction("Index", "Jobs");
+            }
+
+            if (!IsValidFileType(cvFile))
+            {
+                TempData["ErrorMessage"] = "Only PDF and DOCX files are allowed.";
+                return RedirectToAction("Index", "Jobs");
+            }
+
+            if (cvFile == null || cvFile.Length <= 0)
+            {
+                TempData["ErrorMessage"] = "Please select a file to upload.";
+                return RedirectToAction("Index", "Jobs");
+            }
+
+            if (cvFile.Length > 10 * 1024 * 1024)
+            {
+                TempData["ErrorMessage"] = "File size cannot be greater than 10MB.";
+                return RedirectToAction("Index", "Jobs");
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                TempData["ErrorMessage"] = "An error has occurred.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var uploadsFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Data");
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            string uniqueFileName = Guid.NewGuid().ToString() + "_" + cvFile.FileName;
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            try
+            {
+                byte[] fileBytes;
+                using (var ms = new MemoryStream())
+                {
+                    await cvFile.CopyToAsync(ms);
+                    fileBytes = ms.ToArray();
+                }
+
+                var e = new Encryption();
+
+                var userPrivateKey = _keyRepository.GetKeyById(user.Id);
+                if (userPrivateKey.PrivateKey == null)
+                {
+                    TempData["ErrorMessage"] = "User's encryption key not found.";
+                    return RedirectToAction("Index", "Jobs");
+                }
+
+                byte[] signature = e.DigitalSign(fileBytes, userPrivateKey.PrivateKey);
+
+                CV cv = new CV()
+                {
+                    FileName = uniqueFileName,
+                    UserId = user.Id,
+                    EmployerId = employerId,
+                    DigtalSignature = signature,
+                };
+
+                _cvRepository.AddCv(cv);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await fileStream.WriteAsync(fileBytes, 0, fileBytes.Length);
+                }
+
+                TempData["SuccessMessage"] = "CV uploaded successfully!";
+                return RedirectToAction("Index", "Jobs");
+            }
+            catch (Exception)
+            {
+                TempData["ErrorMessage"] = "An error occurred while uploading the file.";
+                return RedirectToAction("Index", "Jobs");
+            }
+        }
+
+Download:
+        public async Task<IActionResult> Download(int cvId)
+        {
+            var cv = _cvRepository.GetAllCv().SingleOrDefault(x => x.Id == cvId);
+            if (cv == null)
+            {
+                TempData["ErrorMessage"] = "An error occurred while downloading the file.";
+                return RedirectToAction("EmployerCvs", "Cv");
+            }
+
+            var uploadsFolder = Path.Combine(_webHostEnvironment.ContentRootPath, "Data");
+            var pathToCv = uploadsFolder + "\\" + cv.FileName;
+
+            if (!System.IO.File.Exists(pathToCv))
+            {
+                TempData["ErrorMessage"] = "File does not exist.";
+                return RedirectToAction("EmployerCvs", "Cv");
+            }
+
+            try
+            {
+                byte[] fileBytes = System.IO.File.ReadAllBytes(pathToCv);
+
+                var userKey = _keyRepository.GetKeyById(cv.UserId);
+                if (userKey.PublicKey == null)
+                {
+                    TempData["ErrorMessage"] = "User's encryption key not found.";
+                    return RedirectToAction("EmployerCvs", "Cv");
+                }
+
+                var e = new Encryption();
+                bool verifySignature = e.DigitalVerification(fileBytes, cv.DigtalSignature, userKey.PublicKey);
+                if (!verifySignature)
+                {
+                    TempData["ErrorMessage"] = "File signature could not be verified.";
+                    return RedirectToAction("EmployerCvs", "Cv");
+                }
+
+                string fileName = cv.FileName.Substring(37);
+                return File(fileBytes, "application/octet-stream", fileName);
+            }
+            catch (Exception)
+            {
+                TempData["ErrorMessage"] = "An error occurred while downloading the file.";
+                return RedirectToAction("Index", "Home");
+            }
+        }

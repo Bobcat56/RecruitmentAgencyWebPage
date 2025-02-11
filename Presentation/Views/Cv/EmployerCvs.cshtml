@@ -1,0 +1,48 @@
+﻿@model IEnumerable<Presentation.Models.CvViewModel>
+
+@{
+    ViewData["Title"] = "EmployerCvs";
+}
+
+<h1>User Submitted Cv's</h1>
+
+@if (!Model.Any())
+{
+    <p>Nobody has applied to your job postings yet!</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>
+                    <a>Submitted from:</a>
+                </th>
+                <th>
+                    <a>Submitted to:</a>
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.UserEmail)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.EmployerEmail)
+                    </td>
+                    <td>
+                       <form asp-controller="CV" asp-action="Download" method="post" enctype="multipart/form-data" style="display:inline">
+                            <input type="hidden" name="cvId" value="@item.Id" />
+                            <button type="submit" class="btn btn-primary">Download CV</button>
+                       </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
